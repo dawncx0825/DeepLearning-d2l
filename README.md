@@ -109,40 +109,7 @@ EncoderDecoder
 
 ---
 
-## 记录下来的静默失败
 
-这个仓库最主要的用途是记录**能正常运行但结果不对**的错误。这类问题不抛异常、形状检查也过，是深度学习调试里最花时间的部分。
-
-| 现象 | 后果 |
-|---|---|
-| `argmax` 不指定 `dim` | 在错误的轴上取最大值 |
-| 忘记 `zero_grad()` | 梯度累加，等效学习率漂移 |
-| 评估时忘记 `net.eval()` | Dropout / BatchNorm 仍处训练模式 |
-| 子模块放进普通 Python list | 参数不注册，optimizer 不更新 |
-| `optimizer.load_state_dict` 覆盖新设的 `lr` | 改了超参但没生效 |
-| `repeat` 与 `repeat_interleave` 混用 | 形状相同，掩码全部错位 |
-| `reshape` 前漏 `permute` | 形状合法，不同头/位置的数据被打乱 |
-| 4D 张量上用 `transpose(1, 2)` | 交换了错误的两轴，应用 `transpose(-2, -1)` |
-| 自注意力中 q/k 传混 | q、k 同源同形状，一路跑到底不报错 |
-| `squeeze()` 不带参数 | `batch=1` 时把 batch 轴一并删掉 |
-| dropout 作用在 logits 而非注意力权重上 | `eval()` 模式下两种写法输出完全相同，测试抓不到 |
-
-最后一条最难发现：它只在训练时存在，任何在 `eval()` 下做的单元测试都无法暴露它。
-
----
-
-## 一个有用的测试模式
-
-`transpose_qkv` / `transpose_output` 这类形状变换，**形状检查完全无效**——写错时形状仍然合法。用互逆测试：
-
-```python
-X = torch.arange(2*10*32, dtype=torch.float32).reshape(2, 10, 32)
-assert torch.equal(transpose_output(transpose_qkv(X, 4), 4), X)
-```
-
-用 `arange` 而非 `randn`：每个元素都不同，任何顺序错乱都会被 `equal` 抓到。
-
----
 
 ## 参考
 
